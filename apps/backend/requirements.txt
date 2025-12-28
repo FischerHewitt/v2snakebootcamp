@@ -1,0 +1,7 @@
+torch
+websockets
+asyncio
+python-socketio
+aiohttp
+numpy
+# socketio

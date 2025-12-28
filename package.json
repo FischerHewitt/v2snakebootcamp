@@ -1,0 +1,6 @@
+{
+  "name": "snake-nextjs-socketio",
+  "workspaces": [
+    "apps/*"
+  ]
+}
