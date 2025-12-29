@@ -502,26 +502,116 @@ async def update_game(sid: str) -> None:
         except Exception:
             pass
 
-
-# TODO: Helper function for AI agent interaction with game
-# --- IMPLEMENTATION (stub for future agent work) ---
 async def update_agent_game_state(game: Game, agent: Any) -> None:
     """Handle AI agent decision making and training"""
-    # TODO: Get the current game state for the agent
-    # TODO: Have the agent choose an action (forward, turn left, turn right)
-    # TODO: Convert the agent's action to a game direction
-    # TODO: Apply the direction change to the game
-    # TODO: Step the game forward one frame
-    # TODO: Calculate the reward for this action
-    # TODO: Get the new game state after the action
-    # TODO: Train the agent on this experience (short-term memory)
-    # TODO: Store this experience in the agent's memory
-    # TODO: If the game ended:
-    #   - Train the agent's long-term memory
-    #   - Update statistics (games played, average score)
-    #   - Reset the game for the next round
-    # --- IMPLEMENTATION ---
-    return  # intentionally not implemented in the base backend
+    if game is None or agent is None:
+        return
+
+    get_state = getattr(agent, "get_state", None)
+    state = get_state(game) if callable(get_state) else game.to_vector()
+
+    get_action = getattr(agent, "get_action", None)
+    action = get_action(state) if callable(get_action) else [1, 0, 0]
+
+    if hasattr(action, "tolist"):
+        action = action.tolist()
+    if isinstance(action, (list, tuple)) and action and isinstance(action[0], (list, tuple)):
+        action = action[0]
+
+    if isinstance(action, (int, float)):
+        action_index = int(action)
+    elif hasattr(action, "item"):
+        try:
+            action_index = int(action.item())
+        except Exception:
+            action_index = 0
+    elif isinstance(action, (list, tuple)) and action:
+        try:
+            action_index = int(max(range(len(action)), key=lambda i: action[i]))
+        except Exception:
+            action_index = 0
+    else:
+        action_index = 0
+
+    action_index = 0 if action_index not in (0, 1, 2) else action_index
+    clockwise = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+    current_dir = getattr(game.snake, "direction", (0, 1))
+    try:
+        dir_index = clockwise.index(tuple(current_dir))
+    except Exception:
+        dir_index = 0
+
+    if action_index == 0:
+        new_dir = clockwise[dir_index]
+    elif action_index == 1:
+        new_dir = clockwise[(dir_index + 1) % 4]
+    else:
+        new_dir = clockwise[(dir_index - 1) % 4]
+
+    direction_str = {
+        (0, -1): "UP",
+        (0, 1): "DOWN",
+        (-1, 0): "LEFT",
+        (1, 0): "RIGHT",
+    }.get(new_dir)
+
+    if direction_str:
+        if hasattr(game, "queue_change") and callable(getattr(game, "queue_change")):
+            game.queue_change(direction_str)
+        else:
+            game.snake.change_direction(direction_str)
+
+    prev_score = int(getattr(game, "score", 0))
+    game.step()
+
+    done = not bool(getattr(game, "running", True))
+    calculate_reward = getattr(agent, "calculate_reward", None)
+    if callable(calculate_reward):
+        reward = calculate_reward(game, done)
+    else:
+        reward = -10 if done else (10 if int(getattr(game, "score", 0)) > prev_score else 0)
+
+    next_state = get_state(game) if callable(get_state) else game.to_vector()
+
+    train_short_memory = getattr(agent, "train_short_memory", None)
+    if callable(train_short_memory):
+        train_short_memory(state, action, reward, next_state, done)
+
+    remember = getattr(agent, "remember", None)
+    if callable(remember):
+        remember(state, action, reward, next_state, done)
+
+    if done:
+        train_long_memory = getattr(agent, "train_long_memory", None)
+        if callable(train_long_memory):
+            train_long_memory()
+
+        if hasattr(agent, "n_games"):
+            try:
+                agent.n_games = int(agent.n_games) + 1
+            except Exception:
+                agent.n_games = 1
+
+        if hasattr(agent, "total_score"):
+            try:
+                agent.total_score = int(agent.total_score) + int(getattr(game, "score", 0))
+            except Exception:
+                agent.total_score = int(getattr(game, "score", 0))
+
+        if hasattr(agent, "scores"):
+            try:
+                agent.scores.append(int(getattr(game, "score", 0)))
+            except Exception:
+                pass
+
+        if hasattr(agent, "record"):
+            try:
+                agent.record = max(int(agent.record), int(getattr(game, "score", 0)))
+            except Exception:
+                agent.record = int(getattr(game, "score", 0))
+
+        if hasattr(game, "reset") and callable(getattr(game, "reset")):
+            game.reset()
 
 
 # TODO: Main server startup function
@@ -561,4 +651,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
