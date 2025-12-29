@@ -1,5 +1,4 @@
 # app.py — Snake Bootcamp backend (aiohttp + python-socketio)
-# This version preserves the scaffold's TODO comments and implements code directly underneath them.
 
 import os
 import random
@@ -13,19 +12,10 @@ from game import Game
 # from model import DQN  # (Optional) AI agent — not used yet
 
 
-# TODO: Create a SocketIO server instance with CORS settings to allow connections from frontend
-# Example: sio = socketio.AsyncServer(cors_allowed_origins="*")
-# --- IMPLEMENTATION ---
 sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
 
-# TODO: Create a web application instance
-# Example: app = web.Application()
-# --- IMPLEMENTATION ---
 app = web.Application()
 
-# TODO: Attach the socketio server to the web app
-# Example: sio.attach(app)
-# --- IMPLEMENTATION ---
 sio.attach(app)
 
 
@@ -35,13 +25,9 @@ async def handle_ping(request: Any) -> Any:
     return web.json_response({"message": "pong"})
 
 
-# TODO: Create a socketio event handler for when clients connect
-# --- IMPLEMENTATION ---
 @sio.event
 async def connect(sid: str, environ: Dict[str, Any]) -> None:
     """Handle client connections - called when a frontend connects to the server"""
-    # TODO: Print a message showing which client connected
-    # --- IMPLEMENTATION ---
     print(f"✅ Client connected: {sid}")
 
     # Initialize per-connection session state
@@ -66,8 +52,6 @@ async def connect(sid: str, environ: Dict[str, Any]) -> None:
     await sio.emit("server_ready", {"sid": sid, "message": "server_ready"}, room=sid)
 
 
-# TODO: Create a socketio event handler for when clients disconnect
-# --- IMPLEMENTATION ---
 @sio.event
 async def disconnect(sid: str) -> None:
     """Handle client disconnections - cleanup any resources"""
@@ -93,13 +77,9 @@ async def disconnect(sid: str) -> None:
             print(f"[disconnect] agent cleanup error: {e}")
 
 
-# TODO: Create a socketio event handler for starting a new game
-# --- IMPLEMENTATION ---
 @sio.event
 async def start_game(sid: str, data: Dict[str, Any]) -> None:
     """Initialize a new game when the frontend requests it"""
-    # TODO: Extract game parameters from data (grid_width, grid_height, starting_tick)
-    # --- IMPLEMENTATION ---
     session = await sio.get_session(sid)
     if session is None:
         print(f"[start_game] no session for sid={sid}")
@@ -119,8 +99,6 @@ async def start_game(sid: str, data: Dict[str, Any]) -> None:
     gw = data.get("grid_width") or data.get("width")
     gh = data.get("grid_height") or data.get("height")
 
-    # TODO: Create a new Game instance and configure it
-    # --- IMPLEMENTATION ---
     game = Game()
     if gw and gh:
         try:
@@ -133,12 +111,8 @@ async def start_game(sid: str, data: Dict[str, Any]) -> None:
         except Exception as e:
             print(f"[start_game] grid params invalid: {e}")
 
-    # TODO: If implementing AI, create an agent instance here
-    # --- IMPLEMENTATION ---
     agent = None  # Not used in the base bootcamp backend
 
-    # TODO: Save the game state in the session using sio.save_session()
-    # --- IMPLEMENTATION ---
     session.update({
         "game": game,
         "agent": agent,
@@ -149,8 +123,6 @@ async def start_game(sid: str, data: Dict[str, Any]) -> None:
     })
     await sio.save_session(sid, session)
 
-    # TODO: Send initial game state to the client using sio.emit()
-    # --- IMPLEMENTATION ---
     try:
         initial_state = game.to_dict()
     except Exception as e:
@@ -159,13 +131,9 @@ async def start_game(sid: str, data: Dict[str, Any]) -> None:
     await sio.emit("game_started", {"tick_ms": tick_ms}, to=sid)
     await sio.emit("game_state", initial_state, to=sid)
 
-    # TODO: Start the game update loop
-    # --- IMPLEMENTATION ---
     asyncio.create_task(update_game(sid))
 
 
-# TODO: Optional - Create event handlers for saving/loading AI models
-# --- IMPLEMENTATION (stubs; frontend can handle "not_implemented") ---
 @sio.event
 async def save_model(sid: str, data: Dict[str, Any]) -> None:
     await sio.emit("error", {"type": "not_implemented", "op": "save_model"}, to=sid)
@@ -392,19 +360,8 @@ async def get_stats(sid: str) -> None:
     await sio.emit("stats", stats, to=sid)
 
 
-# TODO: Implement the main game loop
-# --- IMPLEMENTATION ---
 async def update_game(sid: str) -> None:
     """Main game loop - runs continuously while the game is active"""
-    # TODO: Create an infinite loop
-    # TODO: Check if the session still exists (client hasn't disconnected)
-    # TODO: Get the current game and agent state from the session
-    # TODO: Implement AI agentic decisions
-    # TODO: Update the game state (move snake, check collisions, etc.)
-    # TODO: Save the updated session
-    # TODO: Send the updated game state to the client
-    # TODO: Wait for the appropriate game tick interval before next update
-    # --- IMPLEMENTATION ---
     try:
         session = await sio.get_session(sid)
     except Exception:
@@ -453,12 +410,20 @@ async def update_game(sid: str) -> None:
                 await asyncio.sleep(max(tick_ms, 1) / 1000.0)
                 continue
 
-            # Advance the game one step
-            try:
-                game.step()
-            except Exception as e:
-                print(f"[update_game] game.step error: {e}")
-                break
+            # Advance the game one step (AI agent optional)
+            agent = session.get("agent")
+            if agent is not None:
+                try:
+                    await update_agent_game_state(game, agent)
+                except Exception as e:
+                    print(f"[update_game] agent step error: {e}")
+                    break
+            else:
+                try:
+                    game.step()
+                except Exception as e:
+                    print(f"[update_game] game.step error: {e}")
+                    break
 
             # Prepare state payload
             try:
@@ -614,20 +579,10 @@ async def update_agent_game_state(game: Game, agent: Any) -> None:
             game.reset()
 
 
-# TODO: Main server startup function
-# --- IMPLEMENTATION ---
 async def main() -> None:
     """Start the web server and socketio server"""
-    # TODO: Add the ping endpoint to the web app router
-    # --- IMPLEMENTATION ---
     app.router.add_get("/ping", handle_ping)
 
-    # TODO: Create and configure the web server runner
-    # TODO: Start the server on the appropriate host and port
-    # TODO: Print server startup message
-    # TODO: Keep the server running indefinitely
-    # TODO: Handle any errors gracefully
-    # --- IMPLEMENTATION ---
     runner = web.AppRunner(app)
     await runner.setup()
 
