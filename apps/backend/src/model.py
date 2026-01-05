@@ -1,14 +1,13 @@
-# TODO: Import PyTorch for building neural networks
-# import torch
-# import torch.optim as optim
-# import torch.nn as nn
-# import torch.nn.functional as F
-# import os
-# import datetime
+import datetime
+import os
 from typing import Any
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
 
-class LinearQNet:
+class LinearQNet(nn.Module):
     """
     A simple neural network for Q-learning in the Snake game.
 
@@ -29,10 +28,8 @@ class LinearQNet:
         """
         # Initialize the neural network as a PyTorch nn.Module
         super().__init__()
-
-        # TODO: Create the network layers
-
-        pass
+        self.linear1 = nn.Linear(input_size, hidden_size)
+        self.linear2 = nn.Linear(hidden_size, output_size)
 
     def forward(self, x: Any) -> Any:
         """
@@ -44,25 +41,22 @@ class LinearQNet:
         Returns:
             Output tensor with Q-values for each action
         """
-        # TODO: Apply ReLU activation to first layer
-        # TODO: Apply second layer (no activation for Q-values)
-
-        return x
+        x = F.relu(self.linear1(x))
+        return self.linear2(x)
 
     def save(self) -> None:
         """Save the trained model to disk with timestamp."""
-        # TODO: Create model directory if it doesn't exist
-        # TODO: Generate filename with timestamp
-        # TODO: Save the model state dictionary
-
-        pass
+        model_dir = "models"
+        os.makedirs(model_dir, exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"model_{timestamp}.pth"
+        file_path = os.path.join(model_dir, file_name)
+        torch.save(self.state_dict(), file_path)
 
     def load(self, file_name: str) -> None:
         """Load a previously saved model from disk."""
-        # TODO: Construct full file path
-        # TODO: Load the model state dictionary
-
-        pass
+        file_path = os.path.join("models", file_name)
+        self.load_state_dict(torch.load(file_path))
 
 
 class QTrainer:
@@ -89,11 +83,10 @@ class QTrainer:
             lr: Learning rate for the optimizer
             gamma: Discount factor for future rewards
         """
-        # TODO: Store hyperparameters
-        # TODO: Initialize Adam optimizer
-        # TODO: Initialize Mean Squared Error loss function
-
-        pass
+        self.model = model
+        self.gamma = gamma
+        self.optimizer = optim.Adam(model.parameters(), lr=lr)
+        self.criterion = nn.MSELoss()
 
     def train_step(
         self, state: Any, action: Any, reward: Any, next_state: Any, done: Any
@@ -110,10 +103,33 @@ class QTrainer:
             next_state: Next game state(s)
             done: Whether the game ended
         """
-        # TODO: Handle both single experiences and batches
-        # TODO: Get current Q-values from the model
-        # TODO: Clone predictions to create target values
-        # TODO: Update target values using Bellman equation
-        # TODO: Perform gradient descent
+        if not isinstance(state, torch.Tensor):
+            state = torch.tensor(state, dtype=torch.float)
+        if not isinstance(next_state, torch.Tensor):
+            next_state = torch.tensor(next_state, dtype=torch.float)
+        if not isinstance(action, torch.Tensor):
+            action = torch.tensor(action, dtype=torch.long)
+        if not isinstance(reward, torch.Tensor):
+            reward = torch.tensor(reward, dtype=torch.float)
 
-        pass
+        if len(state.shape) == 1:
+            state = state.unsqueeze(0)
+            next_state = next_state.unsqueeze(0)
+            action = action.unsqueeze(0)
+            reward = reward.unsqueeze(0)
+            done = (done,)
+
+        pred = self.model(state)
+        target = pred.clone().detach()
+
+        for idx in range(len(done)):
+            q_new = reward[idx]
+            if not done[idx]:
+                q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
+            action_idx = int(torch.argmax(action[idx]).item())
+            target[idx][action_idx] = q_new
+
+        self.optimizer.zero_grad()
+        loss = self.criterion(pred, target)
+        loss.backward()
+        self.optimizer.step()

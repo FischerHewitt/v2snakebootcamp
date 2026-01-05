@@ -9,8 +9,6 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const socketRef = useRef<Socket | undefined>(undefined);
 
-  // TODO: variables for tracking the snake attributes
-  // (Implemented: these refs mirror server state without forcing React re-renders)
   type Point = { x: number; y: number };
 
   const gridRef  = useRef({ w: 20, h: 20, cell: 24 }); // board size (cells) and cell pixel size
@@ -31,8 +29,6 @@ export default function Home() {
     alive?: boolean;
   };
 
-  // TODO: function to draw the data to the screen
-  // (Implemented: paints background, grid, snake, food, and score)
   function draw() {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -47,10 +43,8 @@ export default function Home() {
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
 
-    // TODO: clear the canvas before drawing more
     ctx.clearRect(0, 0, width, height);
 
-    // TODO: draw the info
     // background
     ctx.fillStyle = "#0b0b0b";
     ctx.fillRect(0, 0, width, height);
@@ -86,8 +80,6 @@ export default function Home() {
     socketRef.current = s;
 
     const onConnect = () => {
-      // TODO: data about initial game setup
-      // (Implemented: tell server our desired grid and tick speed)
       s.emit("start_game", {
         grid_width: gridRef.current.w,   // number of columns
         grid_height: gridRef.current.h,  // number of rows
@@ -95,8 +87,6 @@ export default function Home() {
       });
     };
 
-    // TODO: update the snake and food state based on data from server
-    // (Implemented: copy fields into refs and redraw)
     const onGameState = (data: unknown) => {
       const st = data as Partial<ServerState>;
 
@@ -142,22 +132,22 @@ export default function Home() {
     };
   }, []);
 
-  // Enhancement: keyboard controls (Arrow keys + WASD → send "action" to server)
+  // Keyboard controls (Arrow keys + WASD → send "change_direction" to server)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const map: Record<string, string> = {
-        ArrowUp: "up",
-        ArrowDown: "down",
-        ArrowLeft: "left",
-        ArrowRight: "right",
-        w: "up",
-        s: "down",
-        a: "left",
-        d: "right",
+        ArrowUp: "UP",
+        ArrowDown: "DOWN",
+        ArrowLeft: "LEFT",
+        ArrowRight: "RIGHT",
+        w: "UP",
+        s: "DOWN",
+        a: "LEFT",
+        d: "RIGHT",
       };
-      const action = map[e.key];
-      if (action && socketRef.current) {
-        socketRef.current.emit("action", { action });
+      const direction = map[e.key];
+      if (direction && socketRef.current) {
+        socketRef.current.emit("change_direction", { direction });
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -174,14 +164,9 @@ export default function Home() {
       return;
     }
 
-    // TODO: clear the canvas before drawing more
-    // TODO: draw the info
-    // (Implemented: draw() handles both)
     draw();
 
     const observer = new MutationObserver(() => {
-      // TODO: handle redwaring on theme change
-      // (Implemented: repaint whenever the root class changes)
       draw();
     });
 
@@ -198,8 +183,6 @@ export default function Home() {
   // RESIZE: fit board to viewport
   useEffect(() => {
     const handleResize = () => {
-      // TODO: maybe manage canvas on resize
-      // (Implemented: recompute cell size to fit, then redraw)
       const availW = window.innerWidth;
       const availH = window.innerHeight - HEADER_HEIGHT_PX;
 
@@ -219,9 +202,6 @@ export default function Home() {
     <div className="absolute top-16 left-0 right-0 bottom-0 flex flex-col items-center justify-center">
       <canvas
         ref={canvasRef}
-        // width={/* TODO: canvas width */}
-        // height={/* TODO: canvas height */}
-        // (Implemented: provide initial attributes; draw() keeps them in sync)
         width={gridRef.current.w * gridRef.current.cell}
         height={gridRef.current.h * gridRef.current.cell}
         style={{ position: "absolute", border: "none", outline: "none" }}
@@ -234,4 +214,3 @@ export default function Home() {
     </div>
   );
 }
-

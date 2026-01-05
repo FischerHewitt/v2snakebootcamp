@@ -111,7 +111,14 @@ async def start_game(sid: str, data: Dict[str, Any]) -> None:
         except Exception as e:
             print(f"[start_game] grid params invalid: {e}")
 
-    agent = None  # Not used in the base bootcamp backend
+    agent = None
+    if bool(data.get("use_ai")):
+        try:
+            from agent import DQN
+            agent = DQN()
+        except Exception as e:
+            print(f"[start_game] AI init error: {e}")
+            await sio.emit("error", {"type": "ai_init_failed", "error": str(e)}, to=sid)
 
     session.update({
         "game": game,
